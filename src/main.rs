@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::{self, Write};
 use std::thread;
 use std::time;
@@ -9,14 +10,18 @@ use termion::raw::RawTerminal;
 
 const SHOW_LINES: u8 = 3;
 
-fn filter_contains<'a>(months: &'a Vec<&str>, word: &String) -> Vec<&'a str> {
+fn filter_contains<'a>(
+    months: &'a Vec<&str>,
+    word: &String,
+    blocklist: &HashSet<&str>,
+) -> Vec<&'a str> {
     if word.is_empty() {
         return Vec::new();
     }
 
     months
         .iter()
-        .filter(|m| m.contains(&word.to_lowercase())) // todo: replace with fuzzy-rs
+        .filter(|m| m.contains(&word.to_lowercase()) && !blocklist.contains(*m)) // todo: maybe replace with fuzzy-rs
         .take(SHOW_LINES as usize)
         .cloned()
         // .map(|s| s.to_string())
@@ -27,12 +32,26 @@ fn filter_contains<'a>(months: &'a Vec<&str>, word: &String) -> Vec<&'a str> {
 fn render(
     arrow: u8,
     filtered_items: &Vec<&str>,
-    chosen_items: &Vec<&str>,
+    chosen_items: &HashSet<&str>,
     stdout: &mut RawTerminal<std::io::Stdout>,
     typed: &String,
 ) {
-    write!(stdout, "Enter some input: {}\n\r").unwrap();
-    write!(stdout, "\n\r").unwrap();
+    write!(
+        stdout,
+        "{}{}\rChosen items: {:?}\n",
+        termion::cursor::Up(1),
+        termion::clear::CurrentLine,
+        chosen_items
+    )
+    .unwrap();
+    write!(
+        stdout,
+        "{}\rEnter some input: {}{}\n\r",
+        termion::clear::CurrentLine,
+        typed,
+        termion::cursor::Save
+    )
+    .unwrap();
 
     // render visible items
     let mut printed_lines = 0;
@@ -53,9 +72,7 @@ fn render(
     }
 
     // print chosen
-    write!(stdout, "\rChosen items: {:?}\n", chosen_items).unwrap();
-
-    write!(stdout, "\rTyped: {:?}\n", typed).unwrap();
+    write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
 
     // restore
     write!(stdout, "{}", termion::cursor::Restore).unwrap();
@@ -86,8 +103,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut arrow: u8 = 0;
     let mut typed = String::new();
 
-    let mut chosen_items: Vec<&str> = Vec::new();
+    let mut chosen_items: HashSet<&str> = HashSet::new();
     let mut filtered_items: Vec<&str> = Vec::new();
+
+    render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
 
     loop {
         let input = stdin.next();
@@ -103,45 +122,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         arrow += 1;
                     }
                 }
-                termion::event::Key::Char('\n') | termion::event::Key::Char('\r') => {
-                    let selected = match filtered_items.get(arrow as usize) {
-                        Some(s) => s,
-                        None => continue,
+                termion::event::Key::Char('\t') => (),
+                termion::event::Key::Char('\n') => {
+                    if let Some(selected) = filtered_items.get(arrow as usize) {
+                        chosen_items.insert(selected);
+                        typed = String::new();
                     };
-
-                    chosen_items.push(selected);
-                    typed = String::new();
+                    filtered_items = Vec::new();
                     arrow = 0;
                 }
                 termion::event::Key::Backspace => {
                     if typed.is_empty() {
-                        continue; // maybe exit loop?
+                        continue; // todo: maybe exit loop
                     }
                     typed.pop();
-                    filtered_items = filter_contains(&months, &typed);
-                    write!(
-                        stdout,
-                        "{}{}{}",
-                        termion::cursor::Left(1),
-                        termion::clear::UntilNewline,
-                        termion::cursor::Save
-                    )
-                    .unwrap();
+                    filtered_items = filter_contains(&months, &typed, &chosen_items);
                 }
                 termion::event::Key::Char(character) => {
                     typed.push(character);
                     arrow = 0;
-                    filtered_items = filter_contains(&months, &typed);
-                    write!(stdout, "{}{}", character, termion::cursor::Save).unwrap();
+                    filtered_items = filter_contains(&months, &typed, &chosen_items);
                 }
                 _ => break,
             }
-            render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed)
+            render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
         }
         thread::sleep(time::Duration::from_millis(50));
     }
 
-    // write!(stdout, "\n\rThe months are: {}", words).unwrap();
     write!(stdout, "\n\r").unwrap();
 
     Ok(())
