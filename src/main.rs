@@ -3,12 +3,20 @@ use std::io::{self, Write};
 use std::thread;
 use std::time;
 
+use regex::Regex;
+
+use serde::Deserialize;
 use termion;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
 
 const SHOW_LINES: u8 = 3;
+
+#[derive(Deserialize, Debug)]
+struct File {
+    name: String,
+}
 
 fn filter_contains<'a>(
     months: &'a Vec<&str>,
@@ -80,6 +88,27 @@ fn render(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // let request_url = format!("")
+    let files =
+        match minreq::get("https://api.github.com/repos/toptal/gitignore/contents/templates")
+            .with_header("User-Agent", "git-ignore")
+            .send()?
+            .json::<Vec<File>>()
+        {
+            Ok(f) => f,
+            Err(e) => return Err(e.into()),
+        };
+
+    let re = Regex::new(r"\.(patch|gitignore)").unwrap();
+    let file_names: Vec<String> = files
+        .iter()
+        .map(|f| re.replace_all(&f.name, "").to_string())
+        .collect();
+
+    println!("files: {:?}", file_names);
+
+    println!("Starting real CLI");
+
     let mut stdout = io::stdout()
         .into_raw_mode()
         .expect("Something went wrong switching into raw mode");
