@@ -18,6 +18,10 @@
   <a href="#license-%EF%B8%8F">License</a>
 </h3>
 
+<p align="center">
+  <img alt="Example usage" src="docs/images/example.gif" style="border-radius:3px">
+</p>
+
 ## Installation 🛠
 
 ```
