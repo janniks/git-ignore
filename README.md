@@ -1,7 +1,7 @@
 <h1 align="center" style="font-weight: bold !important">git-ignore 🙈</h1>
 
 <p align="center">
-  <strong>git-ignore</strong> lets you generate .gitignore files for your repositories right from the terminal
+  <strong>git-ignore</strong> lets you generate <code>.gitignore</code> files for your repositories right from the terminal
 </p>
 
 <h3 align="center">
