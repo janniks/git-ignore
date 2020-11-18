@@ -16,9 +16,20 @@
 
 ## Installation 🛠
 
+**git-ignore** is currently available via external Hombrew tap. We are working on adding it to the official Homebrew taps.
+
+```
+brew tap janniks/git-ignore
+brew install git-ignore
+```
+
 ## Why? ⚡️
 
+...
+
 ## How? 💭
+
+...
 
 ## License ⚖️
 
