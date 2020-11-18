@@ -11,6 +11,8 @@
   <span> · </span>
   <a href="#how-">How?</a>
   <span> · </span>
+  <a href="#credits-">Credits</a>
+  <span> · </span>
   <a href="#license-%EF%B8%8F">License</a>
 </h3>
 
