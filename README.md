@@ -23,6 +23,8 @@ brew tap janniks/git-ignore
 brew install git-ignore
 ```
 
+Then you can use `git ignore` in any git repository.
+
 ## Why? ⚡️
 
 ...
