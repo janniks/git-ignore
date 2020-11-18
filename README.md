@@ -47,7 +47,7 @@ From now on, you simply run `git ignore` to launch the interactive CLI, anytime 
 
 ## Why? ⚡️
 
-...
+Every time I start a new project/repository, I need a `.gitignore` file. And every time I missed something that had to be added later—often after unstashing/reverting, because of those pesky `git add -all` I love so dearly. Then came [https://gitignore.io](gitignore.io) and made my life a lot easier. Sadly, not too long ago, Toptal decided to rebrand the site a bit (not too much, but we developers are purists). So, the next time I spun up a new repository, I started procrastinating. I no longer wanted to have to leave the terminal to setup a .gitignore file. And thus **git-ignore** was born. You can now utilize battle-tested ignore templates right from your terminal.
 
 ## How? 💭
 
