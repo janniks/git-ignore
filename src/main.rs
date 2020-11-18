@@ -6,6 +6,7 @@ use std::time;
 
 use regex::Regex;
 
+use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
 use termion;
@@ -25,6 +26,13 @@ struct File {
 struct Item<'a> {
     name: &'a String,
     score: isize,
+}
+
+#[derive(PartialEq)]
+enum Action {
+    Accept,
+    Cancel,
+    Continue,
 }
 
 fn get_ignores() -> Result<Vec<String>, Box<dyn Error>> {
@@ -79,17 +87,22 @@ fn render(
     stdout: &mut RawTerminal<std::io::Stdout>,
     typed: &String,
 ) {
+    if !chosen_items.is_empty() {
+        write!(
+            stdout,
+            "{}{}\rSelected templates: {}\n",
+            termion::cursor::Up(1),
+            termion::clear::CurrentLine,
+            chosen_items.iter().join(", ")
+        )
+        .unwrap();
+    } else {
+        write!(stdout, "{}\r", termion::clear::CurrentLine,).unwrap();
+    }
+
     write!(
         stdout,
-        "{}{}\rChosen items: {:?}\n",
-        termion::cursor::Up(1),
-        termion::clear::CurrentLine,
-        chosen_items
-    )
-    .unwrap();
-    write!(
-        stdout,
-        "{}\rEnter some input: {}{}\n\r",
+        "{}\rSearch ignore templates: {}{}\n\r",
         termion::clear::CurrentLine,
         typed,
         termion::cursor::Save
@@ -114,8 +127,7 @@ fn render(
         write!(stdout, "{}\n", termion::clear::CurrentLine).unwrap();
     }
 
-    // print chosen
-    write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
+    // write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
 
     // restore
     write!(stdout, "{}", termion::cursor::Restore).unwrap();
@@ -123,13 +135,15 @@ fn render(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("Loading templates from GitHub");
-    let ignores = get_ignores().expect(" ! Unable to load templates from GitHub");
+    println!("Loading ignore templates from GitHub...");
+    let ignores = get_ignores().expect("\n! Unable to load templates from GitHub");
 
     let mut stdout = io::stdout()
         .into_raw_mode()
-        .expect(" ! Unable into raw mode");
+        .expect("\n! Unable into raw mode");
     let mut stdin = termion::async_stdin().keys();
+
+    let mut state = Action::Continue;
 
     let mut arrow: u8 = 0;
     let mut typed = String::new();
@@ -140,6 +154,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
 
     loop {
+        thread::sleep(time::Duration::from_millis(50));
+        render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
+
+        if state != Action::Continue {
+            break;
+        }
+
         let input = stdin.next();
         if let Some(Ok(key)) = input {
             match key {
@@ -153,32 +174,55 @@ fn main() -> Result<(), Box<dyn Error>> {
                         arrow += 1;
                     }
                 }
-                termion::event::Key::Char('\t') => (),
+                termion::event::Key::Char('\t') => {
+                    if typed.is_empty() {
+                        state = Action::Accept;
+                    }
+                }
                 termion::event::Key::Char('\n') => {
-                    if let Some(selected) = filtered_items.get(arrow as usize) {
+                    if typed.is_empty() {
+                        state = Action::Accept;
+                    } else if let Some(selected) = filtered_items.get(arrow as usize) {
                         chosen_items.insert(selected);
                         typed = String::new();
-                    };
+                    }
+
                     filtered_items = Vec::new();
                     arrow = 0;
                 }
                 termion::event::Key::Backspace => {
-                    if typed.is_empty() {
-                        continue; // todo: maybe exit loop
+                    if !typed.is_empty() {
+                        // todo: maybe cancel if empty
+                        typed.pop();
+                        filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                     }
-                    typed.pop();
-                    filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                 }
                 termion::event::Key::Char(character) => {
                     typed.push(character);
                     arrow = 0;
                     filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                 }
-                _ => break,
+                _ => {
+                    typed = String::new();
+                    filtered_items = Vec::new();
+                    arrow = 0;
+
+                    state = Action::Cancel
+                }
             }
-            render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
         }
-        thread::sleep(time::Duration::from_millis(50));
+    }
+
+    write!(stdout, "{}\r", termion::clear::CurrentLine,).unwrap();
+
+    match state {
+        Action::Cancel => {
+            write!(stdout, "Canceled\n").unwrap();
+        }
+        Action::Accept => {
+            write!(stdout, "Selected: {:?}\n", chosen_items).unwrap();
+        }
+        _ => (),
     }
 
     write!(stdout, "\n\r").unwrap();
