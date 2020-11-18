@@ -33,7 +33,7 @@ Then you can use `git ignore` in any git repository.
 
 ## How? 💭
 
-...
+git-ignore is added as an external executable for git. Basically, if there are executables in your PATH that match `git-<command>` then they will become available through git as `git command`.
 
 ## Credits 🌎
 
