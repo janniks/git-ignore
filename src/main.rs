@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::error::Error;
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::thread;
 use std::time;
@@ -16,6 +17,7 @@ use termion::raw::RawTerminal;
 
 const SHOW_LINES: u8 = 4;
 const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
+const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
 
 #[derive(Deserialize, Debug)]
 struct File {
@@ -134,13 +136,28 @@ fn render(
     stdout.lock().flush().unwrap();
 }
 
+fn write_to_file(chosen_items: HashSet<&String>) {
+    let ignore_url = format!("{}/{}", IGNORE_URL, chosen_items.iter().join(","));
+    let response = minreq::get(ignore_url)
+        .send()
+        .expect("\n\r! Unable to get ignore file");
+    let body = response.as_str().expect("\n\r! Unable read body");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(".gitignore")
+        .expect("\n\r! Unable to open file options");
+    write!(file, "{}", body).expect("\n\r! Unable to write to file");
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading ignore templates from GitHub...");
-    let ignores = get_ignores().expect("\n! Unable to load templates from GitHub");
+    let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
 
     let mut stdout = io::stdout()
         .into_raw_mode()
-        .expect("\n! Unable into raw mode");
+        .expect("\n\r! Unable into raw mode");
     let mut stdin = termion::async_stdin().keys();
 
     let mut state = Action::Continue;
@@ -217,15 +234,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match state {
         Action::Cancel => {
-            write!(stdout, "Canceled\n").unwrap();
+            write!(stdout, "Canceled\n\r").unwrap();
         }
         Action::Accept => {
-            write!(stdout, "Selected: {:?}\n", chosen_items).unwrap();
+            write!(stdout, "Writing to .gitignore file\n\r").unwrap();
+            write_to_file(chosen_items);
+            write!(stdout, "Done\n\r").unwrap();
         }
         _ => (),
     }
-
-    write!(stdout, "\n\r").unwrap();
 
     Ok(())
 }
