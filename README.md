@@ -29,6 +29,12 @@ brew tap janniks/git-ignore
 brew install git-ignore
 ```
 
+<details>
+<summary><i>Expand for uninstall instructions</i></summary>
+<p><pre>brew untap janniks/git-ignore
+brew uninstall git-ignore</pre></p>
+</details>
+
 ## Usage 🚀
 
 **git-ignore** is used to generate new `.gitignore` files or append content to existing ones.
