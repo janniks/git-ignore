@@ -7,6 +7,8 @@
 <h3 align="center">
   <a href="#installation-">Installation</a>
   <span> · </span>
+  <a href="#usage-">Usage</a>
+  <span> · </span>
   <a href="#why-%EF%B8%8F">Why?</a>
   <span> · </span>
   <a href="#how-">How?</a>
@@ -18,14 +20,16 @@
 
 ## Installation 🛠
 
-**git-ignore** is currently available via external Hombrew tap. We are working on adding it to the official Homebrew taps.
-
 ```
 brew tap janniks/git-ignore
 brew install git-ignore
 ```
 
-Then you can use `git ignore` in any git repository.
+## Usage 🚀
+
+**git-ignore** is used to generate new `.gitignore` files or append content to existing ones.
+
+From now on, you simply run `git ignore` to launch the interactive CLI, anytime you want to setup or change a `.gitignore` file.
 
 ## Why? ⚡️
 
