@@ -24,6 +24,8 @@
 
 ## Installation 🛠
 
+### Via [Homebrew](https://brew.sh)
+
 ```
 brew tap janniks/git-ignore
 brew install git-ignore
