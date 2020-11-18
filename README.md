@@ -33,6 +33,10 @@ Then you can use `git ignore` in any git repository.
 
 ...
 
+## Credits 🌎
+
+- git-ignore uses templates from the [Toptal](https://www.toptal.com) [gitignore.io](https://gitignore.io) project.
+
 ## License ⚖️
 
 [MIT](LICENSE)
