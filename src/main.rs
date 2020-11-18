@@ -1,19 +1,19 @@
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{self, Write};
-use std::thread;
-use std::time;
+use std::io::{stdout, Write};
 
 use regex::Regex;
 
+use crossterm::{
+    cursor,
+    event::{read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
+    execute,
+    terminal::{self, ClearType::CurrentLine},
+};
 use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
-use termion;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-use termion::raw::RawTerminal;
 
 const SHOW_LINES: u8 = 4;
 const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
@@ -86,30 +86,24 @@ fn render(
     arrow: u8,
     filtered_items: &Vec<&String>,
     chosen_items: &HashSet<&String>,
-    stdout: &mut RawTerminal<std::io::Stdout>,
+    stdout: &mut std::io::Stdout,
     typed: &String,
 ) {
     if !chosen_items.is_empty() {
+        execute!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
         write!(
             stdout,
-            "{}{}\rSelected templates: {}\n",
-            termion::cursor::Up(1),
-            termion::clear::CurrentLine,
+            "\rSelected templates: {}\n",
             chosen_items.iter().join(", ")
         )
         .unwrap();
     } else {
-        write!(stdout, "{}\r", termion::clear::CurrentLine,).unwrap();
+        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
     }
-
-    write!(
-        stdout,
-        "{}\rSearch ignore templates: {}{}\n\r",
-        termion::clear::CurrentLine,
-        typed,
-        termion::cursor::Save
-    )
-    .unwrap();
+    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+    write!(stdout, "\rSearch ignore templates: {}", typed).unwrap();
+    execute!(stdout, cursor::SavePosition).unwrap();
+    write!(stdout, "\n\r").unwrap();
 
     // render visible items
     let mut printed_lines = 0;
@@ -120,19 +114,21 @@ fn render(
             if printed_lines == arrow { '>' } else { ' ' }
         )
         .unwrap();
-        write!(stdout, "{}{}\n", item, termion::clear::UntilNewline).unwrap();
+
+        write!(stdout, "{}\n", item).unwrap();
         printed_lines += 1;
     }
 
     // print empty lines
     for _ in 0..(SHOW_LINES - printed_lines) {
-        write!(stdout, "{}\n", termion::clear::CurrentLine).unwrap();
+        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+        write!(stdout, "\n").unwrap();
     }
 
     // write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
 
     // restore
-    write!(stdout, "{}", termion::cursor::Restore).unwrap();
+    execute!(stdout, cursor::RestorePosition).unwrap();
     stdout.lock().flush().unwrap();
 }
 
@@ -155,10 +151,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading ignore templates from GitHub...");
     let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
 
-    let mut stdout = io::stdout()
-        .into_raw_mode()
-        .expect("\n\r! Unable into raw mode");
-    let mut stdin = termion::async_stdin().keys();
+    terminal::enable_raw_mode()?;
+
+    let mut stdout = stdout();
 
     let mut state = Action::Continue;
 
@@ -171,32 +166,35 @@ fn main() -> Result<(), Box<dyn Error>> {
     render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
 
     loop {
-        thread::sleep(time::Duration::from_millis(50));
         render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
 
         if state != Action::Continue {
             break;
         }
 
-        let input = stdin.next();
-        if let Some(Ok(key)) = input {
+        let event = read()?;
+        if let Event::Key(KeyEvent {
+            code: key,
+            modifiers: KeyModifiers::NONE,
+        }) = event
+        {
             match key {
-                termion::event::Key::Up => {
+                Key::Up => {
                     if 0 < arrow {
                         arrow -= 1;
                     }
                 }
-                termion::event::Key::Down => {
+                Key::Down => {
                     if arrow < SHOW_LINES - 1 {
                         arrow += 1;
                     }
                 }
-                termion::event::Key::Char('\t') => {
+                Key::Tab => {
                     if typed.is_empty() {
                         state = Action::Accept;
                     }
                 }
-                termion::event::Key::Char('\n') => {
+                Key::Enter => {
                     if typed.is_empty() {
                         state = Action::Accept;
                     } else if let Some(selected) = filtered_items.get(arrow as usize) {
@@ -207,19 +205,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                     filtered_items = Vec::new();
                     arrow = 0;
                 }
-                termion::event::Key::Backspace => {
+                Key::Backspace => {
                     if !typed.is_empty() {
                         // todo: maybe cancel if empty
                         typed.pop();
                         filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                     }
                 }
-                termion::event::Key::Char(character) => {
+                Key::Char(character) => {
                     typed.push(character);
                     arrow = 0;
                     filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                 }
                 _ => {
+                    // cancel
                     typed = String::new();
                     filtered_items = Vec::new();
                     arrow = 0;
@@ -227,10 +226,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                     state = Action::Cancel
                 }
             }
+        } else if let Event::Key(KeyEvent {
+            code: _,
+            modifiers: _,
+        }) = event
+        {
+            // cancel
+            typed = String::new();
+            filtered_items = Vec::new();
+            arrow = 0;
+
+            state = Action::Cancel
         }
     }
 
-    write!(stdout, "{}\r", termion::clear::CurrentLine,).unwrap();
+    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+    write!(stdout, "\r").unwrap();
 
     match state {
         Action::Cancel => {
@@ -243,6 +254,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => (),
     }
+
+    terminal::disable_raw_mode()?;
 
     Ok(())
 }
