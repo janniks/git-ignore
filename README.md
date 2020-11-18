@@ -24,7 +24,7 @@
 
 ## Installation 🛠
 
-### Via [Homebrew](https://brew.sh)
+**git-ignore** is released and maintained via [Homebrew](https://brew.sh). Technically, you can build from source or download the release binaries directly, but that is not recommended nor documented.
 
 ```
 brew tap janniks/git-ignore
