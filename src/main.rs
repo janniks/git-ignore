@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::error::Error;
 use std::io::{self, Write};
 use std::thread;
 use std::time;
@@ -6,41 +7,75 @@ use std::time;
 use regex::Regex;
 
 use serde::Deserialize;
+use sublime_fuzzy::best_match;
 use termion;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
 
-const SHOW_LINES: u8 = 3;
+const SHOW_LINES: u8 = 4;
+const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
 
 #[derive(Deserialize, Debug)]
 struct File {
     name: String,
 }
 
-fn filter_contains<'a>(
-    months: &'a Vec<&str>,
+#[derive(Debug)]
+struct Item<'a> {
+    name: &'a String,
+    score: isize,
+}
+
+fn get_ignores() -> Result<Vec<String>, Box<dyn Error>> {
+    let files = minreq::get(TEMPLATES_URL)
+        .with_header("User-Agent", "git-ignore")
+        .send()?
+        .json::<Vec<File>>()?;
+
+    let re = Regex::new(r"\.(patch|gitignore)")?;
+    let mut files: Vec<String> = files
+        .iter()
+        .map(|f| re.replace_all(&f.name, "").to_string())
+        .collect();
+    files.dedup();
+    Ok(files)
+}
+
+fn filter_fuzzy<'a>(
+    source: &'a Vec<String>,
     word: &String,
-    blocklist: &HashSet<&str>,
-) -> Vec<&'a str> {
+    blocklist: &HashSet<&String>,
+) -> Vec<&'a String> {
     if word.is_empty() {
         return Vec::new();
     }
 
-    months
+    let mut items = source
         .iter()
-        .filter(|m| m.contains(&word.to_lowercase()) && !blocklist.contains(*m)) // todo: maybe replace with fuzzy-rs
+        .filter(|i| !blocklist.contains(i))
+        .map(|s| Item {
+            name: s,
+            score: match best_match(&word, &s) {
+                Some(r) => r.score(),
+                None => 0,
+            },
+        })
+        .collect::<Vec<Item>>();
+
+    items.sort_unstable_by(|b, a| a.score.partial_cmp(&b.score).unwrap());
+    items
+        .iter()
+        .filter(|i| i.score > 0) // todo: adjust for more/less matches
+        .map(|i| i.name)
         .take(SHOW_LINES as usize)
-        .cloned()
-        // .map(|s| s.to_string())
-        .collect::<Vec<&str>>()
-    // .or_else(Vec::new)
+        .collect::<Vec<&String>>()
 }
 
 fn render(
     arrow: u8,
-    filtered_items: &Vec<&str>,
-    chosen_items: &HashSet<&str>,
+    filtered_items: &Vec<&String>,
+    chosen_items: &HashSet<&String>,
     stdout: &mut RawTerminal<std::io::Stdout>,
     typed: &String,
 ) {
@@ -87,53 +122,20 @@ fn render(
     stdout.lock().flush().unwrap();
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let request_url = format!("")
-    let files =
-        match minreq::get("https://api.github.com/repos/toptal/gitignore/contents/templates")
-            .with_header("User-Agent", "git-ignore")
-            .send()?
-            .json::<Vec<File>>()
-        {
-            Ok(f) => f,
-            Err(e) => return Err(e.into()),
-        };
-
-    let re = Regex::new(r"\.(patch|gitignore)").unwrap();
-    let file_names: Vec<String> = files
-        .iter()
-        .map(|f| re.replace_all(&f.name, "").to_string())
-        .collect();
-
-    println!("files: {:?}", file_names);
-
-    println!("Starting real CLI");
+fn main() -> Result<(), Box<dyn Error>> {
+    println!("Loading templates from GitHub");
+    let ignores = get_ignores().expect(" ! Unable to load templates from GitHub");
 
     let mut stdout = io::stdout()
         .into_raw_mode()
-        .expect("Something went wrong switching into raw mode");
+        .expect(" ! Unable into raw mode");
     let mut stdin = termion::async_stdin().keys();
-
-    let months = vec![
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ];
 
     let mut arrow: u8 = 0;
     let mut typed = String::new();
 
-    let mut chosen_items: HashSet<&str> = HashSet::new();
-    let mut filtered_items: Vec<&str> = Vec::new();
+    let mut chosen_items: HashSet<&String> = HashSet::new();
+    let mut filtered_items: Vec<&String> = Vec::new();
 
     render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
 
@@ -147,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 termion::event::Key::Down => {
-                    if arrow < 2 {
+                    if arrow < SHOW_LINES - 1 {
                         arrow += 1;
                     }
                 }
@@ -165,12 +167,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue; // todo: maybe exit loop
                     }
                     typed.pop();
-                    filtered_items = filter_contains(&months, &typed, &chosen_items);
+                    filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                 }
                 termion::event::Key::Char(character) => {
                     typed.push(character);
                     arrow = 0;
-                    filtered_items = filter_contains(&months, &typed, &chosen_items);
+                    filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                 }
                 _ => break,
             }
