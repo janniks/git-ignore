@@ -22,6 +22,13 @@
   <img alt="Example usage" src="docs/images/example.gif" style="border-radius:3px">
 </p>
 
+<a href="https://news.ycombinator.com/item?id=25148371">
+  <img
+    alt="Featured on Hacker News"
+    src="https://hackerbadge.now.sh/api?id=25148371"
+  />
+</a>
+
 ## Installation 🛠
 
 **git-ignore** is released and maintained via [Homebrew](https://brew.sh). Technically, you can build from source or download the release binaries directly, however we have not had time to add those instructions yet.
