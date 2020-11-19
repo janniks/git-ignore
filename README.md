@@ -57,7 +57,7 @@ Every time I start a new project/repository, I need a `.gitignore` file. And eve
 
 ## How? 💭
 
-git-ignore is added as an external executable for git. Basically, if there are executables in your PATH that match `git-<command>` then they will become available through git as `git command`.
+git-ignore is added as an external executable for git. Basically, if there are executables in your PATH that match `git-<command>` then they will become available through git as `git <command>`.
 
 git-ignore uses GitHub and Toptal APIs to fetch the ignore templates.
 
