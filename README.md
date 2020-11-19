@@ -4,6 +4,12 @@
   <strong>git-ignore</strong> lets you generate <code>.gitignore</code> files for your repositories right from the terminal
 </p>
 
+<p align="center">
+  <a href="https://news.ycombinator.com/item?id=25148371">
+    <img alt="Featured on Hacker News" src="https://hackerbadge.now.sh/api?id=25148371&type=orange" width="134" height="34"/>
+  </a>
+</p>
+
 <h3 align="center">
   <a href="#installation-">Installation</a>
   <span> · </span>
@@ -21,13 +27,6 @@
 <p align="center">
   <img alt="Example usage" src="docs/images/example.gif" style="border-radius:3px">
 </p>
-
-<a href="https://news.ycombinator.com/item?id=25148371">
-  <img
-    alt="Featured on Hacker News"
-    src="https://hackerbadge.now.sh/api?id=25148371"
-  />
-</a>
 
 ## Installation 🛠
 
