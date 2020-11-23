@@ -29,7 +29,6 @@ const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
 const ClearLine: terminal::Clear = terminal::Clear(CurrentLine);
 const MoveToPreviousLine: cursor::MoveToPreviousLine = cursor::MoveToPreviousLine(1);
 const MoveToNextLine: cursor::MoveToNextLine = cursor::MoveToNextLine(1);
-const MoveUp: cursor::MoveUp = cursor::MoveUp(1);
 const BlueColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Blue);
 const GreenColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Green);
 
