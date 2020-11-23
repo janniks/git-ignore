@@ -1,24 +1,34 @@
+#![allow(non_upper_case_globals)]
+
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{stdout, Write};
+use std::io::Write;
 
 use regex::Regex;
 
 use crossterm::{
-    cursor,
+    cursor::{self, RestorePosition, SavePosition},
     event::{self, read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
     execute, queue,
-    style::Print,
+    style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{self, ClearType::CurrentLine},
 };
 use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
 
+// config
 const SHOW_LINES: usize = 4;
 const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
 const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
+
+// crossterm shortconsts
+const ClearLine: terminal::Clear = terminal::Clear(CurrentLine);
+const MoveToPreviousLine: cursor::MoveToPreviousLine = cursor::MoveToPreviousLine(1);
+const MoveToNextLine: cursor::MoveToNextLine = cursor::MoveToNextLine(1);
+const BlueColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Blue);
+const GreenColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Green);
 
 #[derive(Deserialize, Debug)]
 struct File {
@@ -89,36 +99,56 @@ fn render(
     chosen_items: &HashSet<&String>,
     typed: &String,
 ) {
-    let mut stdout = stdout();
+    let mut stdout = std::io::stdout();
+
+    queue!(stdout, ClearLine, ResetColor);
 
     if !chosen_items.is_empty() {
-        queue!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
-        write!(
+        queue!(
             stdout,
-            "\rSelected templates: {}\n",
-            chosen_items.iter().join(", ")
-        )
-        .unwrap();
-    } else {
-        queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
+            MoveToPreviousLine,
+            ClearLine,
+            Print(format!(
+                "Selected templates: {}{}{}",
+                BlueColor,
+                chosen_items.iter().join(", "),
+                ResetColor
+            )),
+            MoveToNextLine,
+            ClearLine
+        );
     }
-    queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
-    write!(stdout, "\rSearch ignore templates: {}", typed).unwrap();
-    queue!(stdout, cursor::SavePosition).unwrap();
-    write!(stdout, "\n\r").unwrap();
+
+    let search_text = if chosen_items.is_empty() {
+        format!("\rSearch templates: {}{}{}", GreenColor, typed, ResetColor)
+    } else {
+        format!(
+            "\rSearch additional templates: {}{}{}",
+            GreenColor, typed, ResetColor
+        )
+    };
+
+    queue!(
+        stdout,
+        Print(search_text),
+        SavePosition,
+        MoveToNextLine,
+        ClearLine
+    );
 
     // render visible items
-    let mut printed_lines = 0;
-    for item in filtered_items {
+    for (i, item) in filtered_items.iter().enumerate() {
         write!(
             stdout,
-            "\r {} ",
-            if printed_lines == arrow { '>' } else { ' ' }
+            "\r {} {}\n",
+            if i == arrow {
+                format!("{}>{}", BlueColor, ResetColor)
+            } else {
+                " ".to_string()
+            },
+            item
         )
         .unwrap();
-
-        write!(stdout, "{}\n", item).unwrap();
-        printed_lines += 1;
     }
 
     // print empty lines
@@ -128,7 +158,7 @@ fn render(
     }
 
     // restore
-    queue!(stdout, cursor::RestorePosition).unwrap();
+    queue!(stdout, RestorePosition, GreenColor).unwrap();
     stdout.lock().flush().unwrap();
 }
 
@@ -148,20 +178,22 @@ fn write_to_file(chosen_items: HashSet<&String>) {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("Loading ignore templates from GitHub...");
+    println!("Loading ignore templates from GitHub...",);
     let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
+
+    println!(
+        "{}Type to search for ignore templates{}",
+        BlueColor, ResetColor
+    );
+    println!(" - ENTER to select a template or when you're done choosing");
+    println!(" - ESC to cancel at any time\n");
 
     let mut stdout = std::io::stdout();
 
     for _ in 0..SHOW_LINES + 1 {
-        print!("\n"); // todo: iter repeat
+        write!(stdout, "\n");
     }
-    stdout.flush().unwrap();
-
-    // let (x, y) = cursor::position().unwrap();
     execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1));
-
-    let mut stdout = std::io::stdout();
 
     terminal::enable_raw_mode()?;
     execute!(stdout, event::DisableMouseCapture);
@@ -255,8 +287,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
-    write!(stdout, "\r").unwrap();
+    execute!(stdout, ClearLine, ResetColor, Print("\r")).unwrap();
 
     match state {
         Action::Cancel => {
