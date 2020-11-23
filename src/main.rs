@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs::OpenOptions;
-use std::io::{stdout, Write};
+use std::io::Write;
 
 use regex::Regex;
 
@@ -89,12 +89,12 @@ fn render(
     chosen_items: &HashSet<&String>,
     typed: &String,
 ) {
-    let mut stdout = stdout();
+    let mut stdout = std::io::stdout();
 
     if !chosen_items.is_empty() {
         queue!(
             stdout,
-            cursor::MoveToPreviousLine(1),
+            cursor::MoveToPreviousLine(2),
             terminal::Clear(CurrentLine),
             Print(format!(
                 "Selected templates: {}",
@@ -156,26 +156,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading ignore templates from GitHub...");
     let ignores = get_ignores().expect("Unable to load templates from GitHub");
 
-    let mut stdout = stdout();
+    let mut stdout = std::io::stdout();
+
+    for _ in 0..10 {
+        print!("\n");
+    }
+    stdout.flush().unwrap();
 
     let (x, y) = cursor::position().unwrap();
-    println!("pos {} {}", x, y);
+    execute!(stdout, cursor::MoveTo(x, y - 11));
 
+    let mut stdout = std::io::stdout();
     terminal::enable_raw_mode().expect("Unable to enter raw mode");
     execute!(stdout, event::DisableMouseCapture);
-
-    execute!(
-        stdout,
-        cursor::SavePosition,
-        terminal::ScrollUp(10),
-        cursor::RestorePosition
-    );
-
-    let (x, y) = terminal::size().unwrap();
-    println!("siz {} {}", x, y);
-    execute!(stdout, terminal::SetSize(x, y + SHOW_LINES as u16));
-    let (x, y) = terminal::size().unwrap();
-    println!("siz {} {}", x, y);
 
     // loop variable
     let mut state = Action::Continue;
