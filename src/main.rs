@@ -16,7 +16,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
 
-const SHOW_LINES: u8 = 4;
+const SHOW_LINES: usize = 4;
 const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
 const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
 
@@ -84,7 +84,7 @@ fn filter_fuzzy<'a>(
 }
 
 fn render(
-    arrow: u8,
+    arrow: usize,
     filtered_items: &Vec<&String>,
     chosen_items: &HashSet<&String>,
     typed: &String,
@@ -122,12 +122,10 @@ fn render(
     }
 
     // print empty lines
-    for _ in 0..(SHOW_LINES - printed_lines) {
+    for _ in 0..(SHOW_LINES - filtered_items.len()) {
         execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
         write!(stdout, "\n").unwrap();
     }
-
-    // write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
 
     // restore
     execute!(stdout, cursor::RestorePosition).unwrap();
@@ -164,15 +162,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     execute!(stdout, cursor::MoveTo(x, y - 10));
 
     let mut stdout = std::io::stdout();
+
     terminal::enable_raw_mode()?;
-
-    // return Ok(());
-
     execute!(stdout, event::DisableMouseCapture);
 
+    // loop variables
+    // todo: extract loop to separate method
     let mut state = Action::Continue;
 
-    let mut arrow: u8 = 0;
+    let mut arrow: usize = 0;
     let mut typed = String::new();
 
     let mut chosen_items: HashSet<&String> = HashSet::new();
