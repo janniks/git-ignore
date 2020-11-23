@@ -12,11 +12,13 @@ use crossterm::{
     event::{self, read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
     execute, queue,
     style::{Color, Print, ResetColor, SetForegroundColor},
-    terminal::{self, ClearType::CurrentLine},
+    terminal::{self, disable_raw_mode, enable_raw_mode, ClearType::CurrentLine},
 };
 use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 // config
 const SHOW_LINES: usize = 4;
@@ -27,6 +29,7 @@ const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
 const ClearLine: terminal::Clear = terminal::Clear(CurrentLine);
 const MoveToPreviousLine: cursor::MoveToPreviousLine = cursor::MoveToPreviousLine(1);
 const MoveToNextLine: cursor::MoveToNextLine = cursor::MoveToNextLine(1);
+const MoveUp: cursor::MoveUp = cursor::MoveUp(1);
 const BlueColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Blue);
 const GreenColor: crossterm::style::SetForegroundColor = SetForegroundColor(Color::Green);
 
@@ -48,7 +51,7 @@ enum Action {
     Continue,
 }
 
-fn get_ignores() -> Result<Vec<String>, Box<dyn Error>> {
+fn get_ignores() -> Result<Vec<String>> {
     let files = minreq::get(TEMPLATES_URL)
         .with_header("User-Agent", "git-ignore")
         .send()?
@@ -101,7 +104,7 @@ fn render(
 ) {
     let mut stdout = std::io::stdout();
 
-    queue!(stdout, ClearLine, ResetColor);
+    queue!(stdout, ClearLine, ResetColor).unwrap();
 
     if !chosen_items.is_empty() {
         queue!(
@@ -116,7 +119,8 @@ fn render(
             )),
             MoveToNextLine,
             ClearLine
-        );
+        )
+        .unwrap();
     }
 
     let search_text = if chosen_items.is_empty() {
@@ -134,7 +138,8 @@ fn render(
         SavePosition,
         MoveToNextLine,
         ClearLine
-    );
+    )
+    .unwrap();
 
     // render visible items
     for (i, item) in filtered_items.iter().enumerate() {
@@ -153,8 +158,7 @@ fn render(
 
     // print empty lines
     for _ in 0..(SHOW_LINES - filtered_items.len()) {
-        queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
-        write!(stdout, "\n").unwrap();
+        queue!(stdout, ClearLine, Print("\n")).unwrap();
     }
 
     // restore
@@ -177,7 +181,16 @@ fn write_to_file(chosen_items: HashSet<&String>) {
     write!(file, "{}", body).expect("\n\r! Unable to write to file");
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn create_screen_estate() -> Result<()> {
+    let mut stdout = std::io::stdout();
+    for _ in 0..SHOW_LINES + 1 {
+        write!(stdout, "\n")?;
+    }
+    execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1))?;
+    Ok(())
+}
+
+fn main() -> Result<()> {
     println!("Loading ignore templates from GitHub...",);
     let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
 
@@ -188,15 +201,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!(" - ENTER to select a template or when you're done choosing");
     println!(" - ESC to cancel at any time\n");
 
+    create_screen_estate()?;
+    enable_raw_mode()?;
+
     let mut stdout = std::io::stdout();
-
-    for _ in 0..SHOW_LINES + 1 {
-        write!(stdout, "\n");
-    }
-    execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1));
-
-    terminal::enable_raw_mode()?;
-    execute!(stdout, event::DisableMouseCapture);
+    execute!(stdout, event::DisableMouseCapture).unwrap();
 
     // loop variables
     // todo: extract loop to separate method
@@ -208,12 +217,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut chosen_items: HashSet<&String> = HashSet::new();
     let mut filtered_items: Vec<&String> = Vec::new();
 
-    loop {
+    while state == Action::Continue {
         render(arrow, &filtered_items, &chosen_items, &typed);
-
-        if state != Action::Continue {
-            break;
-        }
 
         let event = read()?;
         if let Event::Key(KeyEvent {
@@ -291,17 +296,17 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     match state {
         Action::Cancel => {
-            write!(stdout, "Canceled\n\r").unwrap();
+            execute!(stdout, Print("Canceled\n\r")).unwrap();
         }
         Action::Accept => {
-            write!(stdout, "Writing to .gitignore file\n\r").unwrap();
+            execute!(stdout, Print("Writing to .gitignore file\n\r")).unwrap();
             write_to_file(chosen_items);
-            write!(stdout, "Done\n\r").unwrap();
+            execute!(stdout, Print("Done\n\r")).unwrap();
         }
         _ => (),
     }
 
-    terminal::disable_raw_mode()?;
+    disable_raw_mode()?;
 
     Ok(())
 }
