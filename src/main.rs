@@ -7,15 +7,16 @@ use regex::Regex;
 
 use crossterm::{
     cursor,
-    event::{read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
-    execute,
+    event::{self, read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
+    execute, queue,
+    style::Print,
     terminal::{self, ClearType::CurrentLine},
 };
 use itertools::Itertools;
 use serde::Deserialize;
 use sublime_fuzzy::best_match;
 
-const SHOW_LINES: u8 = 4;
+const SHOW_LINES: usize = 4;
 const TEMPLATES_URL: &str = "https://api.github.com/repos/toptal/gitignore/contents/templates";
 const IGNORE_URL: &str = "https://www.toptal.com/developers/gitignore/api/";
 
@@ -83,90 +84,110 @@ fn filter_fuzzy<'a>(
 }
 
 fn render(
-    arrow: u8,
+    arrow: usize,
     filtered_items: &Vec<&String>,
     chosen_items: &HashSet<&String>,
-    stdout: &mut std::io::Stdout,
     typed: &String,
 ) {
+    let mut stdout = stdout();
+
     if !chosen_items.is_empty() {
-        execute!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
-        write!(
+        queue!(
             stdout,
-            "\rSelected templates: {}\n",
-            chosen_items.iter().join(", ")
-        )
-        .unwrap();
+            cursor::MoveToPreviousLine(1),
+            terminal::Clear(CurrentLine),
+            Print(format!(
+                "Selected templates: {}",
+                chosen_items.iter().join(", ")
+            ))
+        );
     } else {
-        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+        // queue!(stdout, terminal::Clear(CurrentLine));
     }
-    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
-    write!(stdout, "\rSearch ignore templates: {}", typed).unwrap();
-    execute!(stdout, cursor::SavePosition).unwrap();
-    write!(stdout, "\n\r").unwrap();
+
+    queue!(
+        stdout,
+        cursor::MoveToNextLine(1),
+        terminal::Clear(CurrentLine),
+        Print(format!("Search ignore templates: {}", typed)),
+        cursor::SavePosition,
+        cursor::MoveToNextLine(1)
+    );
 
     // render visible items
-    let mut printed_lines = 0;
-    for item in filtered_items {
-        write!(
+    for (i, item) in filtered_items.iter().enumerate() {
+        queue!(
             stdout,
-            "\r {} ",
-            if printed_lines == arrow { '>' } else { ' ' }
-        )
-        .unwrap();
-
-        write!(stdout, "{}\n", item).unwrap();
-        printed_lines += 1;
+            Print(format!(
+                " {} {}",
+                if i == arrow as usize { '>' } else { ' ' },
+                item
+            )),
+            cursor::MoveToNextLine(1)
+        );
     }
 
     // print empty lines
-    for _ in 0..(SHOW_LINES - printed_lines) {
-        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
-        write!(stdout, "\n").unwrap();
+    for _ in 0..(SHOW_LINES - filtered_items.len()) {
+        queue!(stdout, cursor::MoveToNextLine(1));
     }
 
-    // write!(stdout, "\rDEBUG: {:?}\n", typed).unwrap();
-
     // restore
-    execute!(stdout, cursor::RestorePosition).unwrap();
-    stdout.lock().flush().unwrap();
+    queue!(stdout, cursor::RestorePosition);
+    stdout.flush().unwrap();
 }
 
 fn write_to_file(chosen_items: HashSet<&String>) {
     let ignore_url = format!("{}/{}", IGNORE_URL, chosen_items.iter().join(","));
     let response = minreq::get(ignore_url)
         .send()
-        .expect("\n\r! Unable to get ignore file");
-    let body = response.as_str().expect("\n\r! Unable read body");
+        .expect("Unable to get ignore file");
+    let body = response.as_str().expect("Unable read body");
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .append(true)
         .open(".gitignore")
-        .expect("\n\r! Unable to open file options");
-    write!(file, "{}", body).expect("\n\r! Unable to write to file");
+        .expect("Unable to open file options");
+    write!(file, "{}", body).expect("Unable to write to file");
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading ignore templates from GitHub...");
-    let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
-
-    terminal::enable_raw_mode()?;
+    let ignores = get_ignores().expect("Unable to load templates from GitHub");
 
     let mut stdout = stdout();
 
+    let (x, y) = cursor::position().unwrap();
+    println!("pos {} {}", x, y);
+
+    terminal::enable_raw_mode().expect("Unable to enter raw mode");
+    execute!(stdout, event::DisableMouseCapture);
+
+    execute!(
+        stdout,
+        cursor::SavePosition,
+        terminal::ScrollUp(10),
+        cursor::RestorePosition
+    );
+
+    let (x, y) = terminal::size().unwrap();
+    println!("siz {} {}", x, y);
+    execute!(stdout, terminal::SetSize(x, y + SHOW_LINES as u16));
+    let (x, y) = terminal::size().unwrap();
+    println!("siz {} {}", x, y);
+
+    // loop variable
     let mut state = Action::Continue;
 
-    let mut arrow: u8 = 0;
+    let mut arrow: usize = 0;
     let mut typed = String::new();
 
     let mut chosen_items: HashSet<&String> = HashSet::new();
     let mut filtered_items: Vec<&String> = Vec::new();
 
-    render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
-
     loop {
-        render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
+        render(arrow, &filtered_items, &chosen_items, &typed);
 
         if state != Action::Continue {
             break;
@@ -197,6 +218,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Key::Enter => {
                     if typed.is_empty() {
                         state = Action::Accept;
+                    // todo: write \r or restore for better cursor UX after ENTER
                     } else if let Some(selected) = filtered_items.get(arrow as usize) {
                         chosen_items.insert(selected);
                         typed = String::new();
@@ -240,20 +262,25 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
-    write!(stdout, "\r").unwrap();
+    queue!(stdout, cursor::MoveToNextLine(1));
 
     match state {
         Action::Cancel => {
-            write!(stdout, "Canceled\n\r").unwrap();
+            queue!(stdout, Print("Canceled"), cursor::MoveToNextLine(1));
         }
         Action::Accept => {
-            write!(stdout, "Writing to .gitignore file\n\r").unwrap();
+            execute!(
+                stdout,
+                Print("Writing to .gitignore file"),
+                cursor::MoveToNextLine(1)
+            );
             write_to_file(chosen_items);
-            write!(stdout, "Done\n\r").unwrap();
+            queue!(stdout, Print("Done"), cursor::MoveToNextLine(1)).unwrap();
         }
         _ => (),
     }
+
+    stdout.flush().unwrap();
 
     terminal::disable_raw_mode()?;
 
