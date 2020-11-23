@@ -7,8 +7,9 @@ use regex::Regex;
 
 use crossterm::{
     cursor,
-    event::{read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
+    event::{self, read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
     execute,
+    style::Print,
     terminal::{self, ClearType::CurrentLine},
 };
 use itertools::Itertools;
@@ -86,9 +87,10 @@ fn render(
     arrow: u8,
     filtered_items: &Vec<&String>,
     chosen_items: &HashSet<&String>,
-    stdout: &mut std::io::Stdout,
     typed: &String,
 ) {
+    let mut stdout = stdout();
+
     if !chosen_items.is_empty() {
         execute!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
         write!(
@@ -151,9 +153,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Loading ignore templates from GitHub...");
     let ignores = get_ignores().expect("\n\r! Unable to load templates from GitHub");
 
+    let mut stdout = std::io::stdout();
+
+    for _ in 0..10 {
+        print!("\n");
+    }
+    stdout.flush().unwrap();
+
+    let (x, y) = cursor::position().unwrap();
+    execute!(stdout, cursor::MoveTo(x, y - 10));
+
+    let mut stdout = std::io::stdout();
     terminal::enable_raw_mode()?;
 
-    let mut stdout = stdout();
+    // return Ok(());
+
+    execute!(stdout, event::DisableMouseCapture);
 
     let mut state = Action::Continue;
 
@@ -163,10 +178,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut chosen_items: HashSet<&String> = HashSet::new();
     let mut filtered_items: Vec<&String> = Vec::new();
 
-    render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
-
     loop {
-        render(arrow, &filtered_items, &chosen_items, &mut stdout, &typed);
+        render(arrow, &filtered_items, &chosen_items, &typed);
 
         if state != Action::Continue {
             break;
@@ -196,7 +209,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 Key::Enter => {
                     if typed.is_empty() {
-                        state = Action::Accept;
+                        if filtered_items.is_empty() {
+                            state = Action::Cancel;
+                        } else {
+                            state = Action::Accept;
+                        }
                     } else if let Some(selected) = filtered_items.get(arrow as usize) {
                         chosen_items.insert(selected);
                         typed = String::new();
@@ -212,7 +229,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
                     }
                 }
-                Key::Char(character) => {
+                Key::Char(character) if character.is_alphanumeric() => {
                     typed.push(character);
                     arrow = 0;
                     filtered_items = filter_fuzzy(&ignores, &typed, &chosen_items);
