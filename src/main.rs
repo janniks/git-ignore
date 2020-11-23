@@ -197,7 +197,7 @@ fn main() -> Result<()> {
         "{}Type to search for ignore templates{}",
         BlueColor, ResetColor
     );
-    println!(" - ENTER to select a template or when you're done choosing");
+    println!(" - ENTER to select a template or accept selection");
     println!(" - ESC to cancel at any time\n");
 
     create_screen_estate()?;
