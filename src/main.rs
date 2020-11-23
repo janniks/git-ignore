@@ -8,7 +8,7 @@ use regex::Regex;
 use crossterm::{
     cursor,
     event::{self, read, Event, KeyCode as Key, KeyEvent, KeyModifiers},
-    execute,
+    execute, queue,
     style::Print,
     terminal::{self, ClearType::CurrentLine},
 };
@@ -92,7 +92,7 @@ fn render(
     let mut stdout = stdout();
 
     if !chosen_items.is_empty() {
-        execute!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
+        queue!(stdout, cursor::MoveUp(1), terminal::Clear(CurrentLine)).unwrap();
         write!(
             stdout,
             "\rSelected templates: {}\n",
@@ -100,11 +100,11 @@ fn render(
         )
         .unwrap();
     } else {
-        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+        queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
     }
-    execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+    queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
     write!(stdout, "\rSearch ignore templates: {}", typed).unwrap();
-    execute!(stdout, cursor::SavePosition).unwrap();
+    queue!(stdout, cursor::SavePosition).unwrap();
     write!(stdout, "\n\r").unwrap();
 
     // render visible items
@@ -123,12 +123,12 @@ fn render(
 
     // print empty lines
     for _ in 0..(SHOW_LINES - filtered_items.len()) {
-        execute!(stdout, terminal::Clear(CurrentLine)).unwrap();
+        queue!(stdout, terminal::Clear(CurrentLine)).unwrap();
         write!(stdout, "\n").unwrap();
     }
 
     // restore
-    execute!(stdout, cursor::RestorePosition).unwrap();
+    queue!(stdout, cursor::RestorePosition).unwrap();
     stdout.lock().flush().unwrap();
 }
 
@@ -153,13 +153,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut stdout = std::io::stdout();
 
-    for _ in 0..10 {
-        print!("\n");
+    for _ in 0..SHOW_LINES + 1 {
+        print!("\n"); // todo: iter repeat
     }
     stdout.flush().unwrap();
 
-    let (x, y) = cursor::position().unwrap();
-    execute!(stdout, cursor::MoveTo(x, y - 10));
+    // let (x, y) = cursor::position().unwrap();
+    execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1));
 
     let mut stdout = std::io::stdout();
 
