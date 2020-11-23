@@ -207,7 +207,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 Key::Enter => {
                     if typed.is_empty() {
-                        if filtered_items.is_empty() {
+                        if chosen_items.is_empty() {
                             state = Action::Cancel;
                         } else {
                             state = Action::Accept;
