@@ -66,8 +66,8 @@ fn get_ignores() -> Result<Vec<String>> {
 }
 
 fn filter_fuzzy<'a>(
-    source: &'a Vec<String>,
-    word: &String,
+    source: &'a [String],
+    word: &str,
     blocklist: &HashSet<&String>,
 ) -> Vec<&'a String> {
     if word.is_empty() {
@@ -79,7 +79,7 @@ fn filter_fuzzy<'a>(
         .filter(|i| !blocklist.contains(i))
         .map(|s| Item {
             name: s,
-            score: match best_match(&word, &s) {
+            score: match best_match(word, s) {
                 Some(r) => r.score(),
                 None => 0,
             },
@@ -95,12 +95,7 @@ fn filter_fuzzy<'a>(
         .collect::<Vec<&String>>()
 }
 
-fn render(
-    arrow: usize,
-    filtered_items: &Vec<&String>,
-    chosen_items: &HashSet<&String>,
-    typed: &String,
-) {
+fn render(arrow: usize, filtered_items: &[&String], chosen_items: &HashSet<&String>, typed: &str) {
     let mut stdout = std::io::stdout();
 
     queue!(stdout, ClearLine, ResetColor).unwrap();
@@ -142,9 +137,9 @@ fn render(
 
     // render visible items
     for (i, item) in filtered_items.iter().enumerate() {
-        write!(
+        writeln!(
             stdout,
-            "\r {} {}\n",
+            "\r {} {}",
             if i == arrow {
                 format!("{}>{}", BlueColor, ResetColor)
             } else {
@@ -183,7 +178,7 @@ fn write_to_file(chosen_items: HashSet<&String>) {
 fn create_screen_estate() -> Result<()> {
     let mut stdout = std::io::stdout();
     for _ in 0..SHOW_LINES + 1 {
-        write!(stdout, "\n")?;
+        writeln!(stdout)?;
     }
     execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1))?;
     Ok(())
