@@ -66,8 +66,8 @@ fn get_ignores() -> Result<Vec<String>> {
 }
 
 fn filter_fuzzy<'a>(
-    source: &'a Vec<String>,
-    word: &String,
+    source: &'a [String],
+    word: &str,
     blocklist: &HashSet<&String>,
 ) -> Vec<&'a String> {
     if word.is_empty() {
@@ -95,12 +95,7 @@ fn filter_fuzzy<'a>(
         .collect::<Vec<&String>>()
 }
 
-fn render(
-    arrow: usize,
-    filtered_items: &Vec<&String>,
-    chosen_items: &HashSet<&String>,
-    typed: &String,
-) {
+fn render(arrow: usize, filtered_items: &[&String], chosen_items: &HashSet<&String>, typed: &str) {
     let mut stdout = std::io::stdout();
 
     queue!(stdout, ClearLine, ResetColor).unwrap();
