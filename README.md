@@ -45,15 +45,15 @@ brew uninstall git-ignore</pre></p>
 
 > Tested on: _macOS, Archlinux_
 
-- Install [Rust](https://www.rust-lang.org)Cargo (e.g. via [rustup](https://rustup.rs)) with your own distribution/operating system.
-- Clone the repository via git and enter the project folder:
+1. Install [Rust](https://www.rust-lang.org) and Cargo (e.g. via [rustup](https://rustup.rs)).
+2. Clone the repository via git and enter the project folder:
 
 ```
 git clone https://github.com/janniks/git-ignore.git
 cd git-ignore
 ```
 
-- Run Cargo's `build` command:
+3. Run Cargo's `build` command:
 
 ```
 cargo build
@@ -62,13 +62,18 @@ cargo build
 > The binary is generated into the `target/debug` directory.
 > If you want to run the command globally, you need to move it to a directory covered by your PATH environment variable (e.g. on Unix systems to the `/usr/local/bin` directory).
 >
-> If `~/.cargo/bin/` is already in your environment's PATH, your can instead run `cargo install --path .` to build and move the executable there.
+> If `~/.cargo/bin/` is already in your environment's PATH, your can run `cargo install --path .` to build and move the executable there (and skip step 4).
 
-- Move the executable:
+4. Move the executable:
 
 ```
 mv target/debug/git-ignore /usr/local/bin/git-ignore
 ```
+
+<details>
+<summary><i>Expand for uninstall instructions</i></summary>
+<p>Simply delete the executable from wherever it was moved:<pre>rf /usr/local/bin/git-ignore</pre><pre>rf ~/.cargo/bin/git-ignore</pre></p>
+</details>
 
 ## Usage 🚀
 
