@@ -24,8 +24,9 @@
 
 ## Installation 🛠
 
-### brew and MacOS
-**git-ignore** is released and maintained via [Homebrew](https://brew.sh). Technically, you can build from source or download the release binaries directly
+### macOS (via [Homebrew](https://brew.sh))
+
+**git-ignore** is released and maintained via [Homebrew](https://brew.sh), which needs to be installed first.
 
 Run the following commands to install:
 
@@ -40,37 +41,40 @@ brew install git-ignore
 brew uninstall git-ignore</pre></p>
 </details>
 
-### Build with cargo
+### Build from source (via Cargo)
 
-> NOTE: 
-> 
-> Tested on Archlinux
+> Tested on: _macOS, Archlinux_
 
-Download Rust and Cargo with your own distribution/operating system. Clone the repository with git: 
-```bash
-git clone https://github.com/janniks/git-ignore.git
+- Install [Rust](https://www.rust-lang.org)Cargo (e.g. via [rustup](https://rustup.rs)) with your own distribution/operating system.
+- Clone the repository via git and enter the project folder:
+
 ```
-
-cd into directory: 
-```bash
+git clone https://github.com/janniks/git-ignore.git
 cd git-ignore
 ```
 
-Launch `cargo build` command: 
-```bash
+- Run Cargo's `build` command:
+
+```
 cargo build
 ```
 
-The binary is generated into `target/debug` directory, if you want to execute as command in any place of your system, you have to add in a directory covered by PATH environment variable. I.e. on linux systems you can copy into `/usr/bin` directory: 
-```bash
-sudo mv target/debug/git-ignore /usr/bin/git-ignore
+> The binary is generated into the `target/debug` directory.
+> If you want to run the command globally, you need to move it to a directory covered by your PATH environment variable (e.g. on Unix systems to the `/usr/local/bin` directory).
+>
+> If `~/.cargo/bin/` is already in your environment's PATH, your can instead run `cargo install --path .` to build and move the executable there.
+
+- Move the executable:
+
+```
+mv target/debug/git-ignore /usr/local/bin/git-ignore
 ```
 
 ## Usage 🚀
 
 **git-ignore** is used to generate new `.gitignore` files or append content to existing ones.
 
-From now on, you simply run `git-ignore` to launch the interactive CLI, anytime you want to setup or change a `.gitignore` file.
+From now on, you simply run `git ignore` to launch the interactive CLI, anytime you want to setup or change a `.gitignore` file.
 
 ## Why? ⚡️
 
