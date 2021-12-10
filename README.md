@@ -24,7 +24,8 @@
 
 ## Installation 🛠
 
-**git-ignore** is released and maintained via [Homebrew](https://brew.sh). Technically, you can build from source or download the release binaries directly, however we have not had time to add those instructions yet.
+### brew and MacOS
+**git-ignore** is released and maintained via [Homebrew](https://brew.sh). Technically, you can build from source or download the release binaries directly
 
 Run the following commands to install:
 
@@ -39,11 +40,37 @@ brew install git-ignore
 brew uninstall git-ignore</pre></p>
 </details>
 
+### Build with cargo
+
+> NOTE: 
+> 
+> Tested on Archlinux
+
+Download Rust and Cargo with your own distribution/operating system. Clone the repository with git: 
+```bash
+git clone https://github.com/janniks/git-ignore.git
+```
+
+cd into directory: 
+```bash
+cd git-ignore
+```
+
+Launch `cargo build` command: 
+```bash
+cargo build
+```
+
+The binary is generated into `target/debug` directory, if you want to execute as command in any place of your system, you have to add in a directory covered by PATH environment variable. I.e. on linux systems you can copy into `/usr/bin` directory: 
+```bash
+sudo mv target/debug/git-ignore /usr/bin/git-ignore
+```
+
 ## Usage 🚀
 
 **git-ignore** is used to generate new `.gitignore` files or append content to existing ones.
 
-From now on, you simply run `git ignore` to launch the interactive CLI, anytime you want to setup or change a `.gitignore` file.
+From now on, you simply run `git-ignore` to launch the interactive CLI, anytime you want to setup or change a `.gitignore` file.
 
 ## Why? ⚡️
 
