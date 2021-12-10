@@ -79,7 +79,7 @@ fn filter_fuzzy<'a>(
         .filter(|i| !blocklist.contains(i))
         .map(|s| Item {
             name: s,
-            score: match best_match(&word, &s) {
+            score: match best_match(word, s) {
                 Some(r) => r.score(),
                 None => 0,
             },
@@ -142,9 +142,9 @@ fn render(
 
     // render visible items
     for (i, item) in filtered_items.iter().enumerate() {
-        write!(
+        writeln!(
             stdout,
-            "\r {} {}\n",
+            "\r {} {}",
             if i == arrow {
                 format!("{}>{}", BlueColor, ResetColor)
             } else {
@@ -183,7 +183,7 @@ fn write_to_file(chosen_items: HashSet<&String>) {
 fn create_screen_estate() -> Result<()> {
     let mut stdout = std::io::stdout();
     for _ in 0..SHOW_LINES + 1 {
-        write!(stdout, "\n")?;
+        writeln!(stdout)?;
     }
     execute!(stdout, cursor::MoveUp(SHOW_LINES as u16 + 1))?;
     Ok(())
