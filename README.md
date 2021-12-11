@@ -72,7 +72,7 @@ mv target/debug/git-ignore /usr/local/bin/git-ignore
 
 <details>
 <summary><i>Expand for uninstall instructions</i></summary>
-<p>Simply delete the executable from wherever it was moved:<pre>rf /usr/local/bin/git-ignore</pre><pre>rf ~/.cargo/bin/git-ignore</pre></p>
+<p>Simply delete the executable from wherever it was moved:<pre>rf /usr/local/bin/git-ignore</pre><pre>rf ~/.cargo/bin/git-ignore</pre><pre>cargo uninstall git-ignore</pre></p>
 </details>
 
 ## Usage 🚀
